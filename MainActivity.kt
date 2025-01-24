@@ -1,65 +1,119 @@
 package com.example.uygulamaadi
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.Color
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.provider.MediaStore
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.semantics.text
-import androidx.core.graphics.drawable.toBitmap
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
-
     private lateinit var imageView1: ImageView
     private lateinit var imageView2: ImageView
+    private lateinit var captureButton1: Button
+    private lateinit var captureButton2: Button
     private lateinit var analyzeButton: Button
-    private lateinit var textViewResult: TextView
+    private lateinit var resultText: TextView
+    
+    private var firstImage: Bitmap? = null
+    private var secondImage: Bitmap? = null
+    
+    private val CAMERA_PERMISSION_CODE = 101
+    private val CAMERA_REQUEST_CODE1 = 102
+    private val CAMERA_REQUEST_CODE2 = 103
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // UI bileşenlerini başlat
         imageView1 = findViewById(R.id.imageView1)
         imageView2 = findViewById(R.id.imageView2)
+        captureButton1 = findViewById(R.id.captureButton1)
+        captureButton2 = findViewById(R.id.captureButton2)
         analyzeButton = findViewById(R.id.analyzeButton)
-        textViewResult = findViewById(R.id.textViewResult)
+        resultText = findViewById(R.id.resultText)
+
+        // Buton tıklama olaylarını ayarla
+        captureButton1.setOnClickListener {
+            if (checkCameraPermission()) {
+                captureImage(CAMERA_REQUEST_CODE1)
+            }
+        }
+
+        captureButton2.setOnClickListener {
+            if (checkCameraPermission()) {
+                captureImage(CAMERA_REQUEST_CODE2)
+            }
+        }
 
         analyzeButton.setOnClickListener {
-            // Resimleri imageView1 ve imageView2'den alın
-            val image1 = imageView1.drawable.toBitmap() // toBitmap() fonksiyonunu eklemeniz gerekebilir
-            val image2 = imageView2.drawable.toBitmap() // toBitmap() fonksiyonunu eklemeniz gerekebilir
-
-            val result = compareImages(image1, image2)
-            textViewResult.text = result
+            analyzeImages()
         }
     }
 
-    private fun compareImages(image1: Bitmap, image2: Bitmap): String {
-        // Basit bir karşılaştırma: Nesnenin kapladığı piksel sayısını karşılaştırın
-        val objectSize1 = getObjectSize(image1)
-        val objectSize2 = getObjectSize(image2)
-
-        return if (objectSize2 < objectSize1) {
-            "Nesne uzaklaşıyor"
-        } else {
-            "Nesne yaklaşıyor veya aynı mesafede"
+    private fun checkCameraPermission(): Boolean {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.CAMERA),
+                CAMERA_PERMISSION_CODE
+            )
+            return false
         }
+        return true
     }
 
-    private fun getObjectSize(image: Bitmap): Int {
-        // Nesnenin kapladığı piksel sayısını hesaplayın (basitleştirilmiş örnek)
-        var objectSize = 0
-        for (x in 0 until image.width) {
-            for (y in 0 until image.height) {
-                // Nesne piksellerini belirlemek için renk veya diğer özellikler kullanılabilir
-                if (image.getPixel(x, y) == Color.RED) {
-                    objectSize++
+    private fun captureImage(requestCode: Int) {
+        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+        startActivityForResult(intent, requestCode)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode == RESULT_OK) {
+            val imageBitmap = data?.extras?.get("data") as Bitmap
+            when (requestCode) {
+                CAMERA_REQUEST_CODE1 -> {
+                    imageView1.setImageBitmap(imageBitmap)
+                    firstImage = imageBitmap
+                }
+                CAMERA_REQUEST_CODE2 -> {
+                    imageView2.setImageBitmap(imageBitmap)
+                    secondImage = imageBitmap
                 }
             }
         }
-        return objectSize
+    }
+
+    private fun analyzeImages() {
+        if (firstImage == null || secondImage == null) {
+            resultText.text = "Lütfen önce iki fotoğraf çekin"
+            return
+        }
+
+        // Basit bir boyut karşılaştırması
+        val firstImageSize = firstImage!!.width * firstImage!!.height
+        val secondImageSize = secondImage!!.width * secondImage!!.height
+
+        val difference = ((secondImageSize - firstImageSize).toFloat() / firstImageSize) * 100
+
+        val result = when {
+            difference > 10 -> "Nesne yaklaşmış görünüyor (${String.format("%.2f", difference)}% değişim)"
+            difference < -10 -> "Nesne uzaklaşmış görünüyor (${String.format("%.2f", -difference)}% değişim)"
+            else -> "Nesnenin konumu önemli bir değişiklik göstermiyor"
+        }
+
+        resultText.text = result
     }
 }
