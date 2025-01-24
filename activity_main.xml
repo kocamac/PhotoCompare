@@ -1,0 +1,12 @@
+<LinearLayout ...>
+<ImageView
+android:id="@+id/imageView1"
+    ... />
+<ImageView
+android:id="@+id/imageView2"
+    ... />
+<Button
+android:id="@+id/analyzeButton"
+android:text="Analiz Et"
+    ... />
+    </LinearLayout>
